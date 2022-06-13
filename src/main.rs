@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 mod db;
 mod log;
+static DEFAULT_STORE: &str = "default";
 fn main() {
     /*
     // In rust, everything is IMUTABLE by default, so we need to opt-in for mutability by using the mut keyword
@@ -15,8 +18,6 @@ fn main() {
     */
     // creating a new Logger struct
     let mut logger: log::Logger = log::Logger::new();
-    // lets create a binding to save our store name
-    let default_store_name: String = String::from("default");
     //
     let mut options_arg: Vec<String> = vec![];
     // another way to parse arguments is collecting them into a vector
@@ -33,9 +34,9 @@ fn main() {
         if arguments.len() == 2 {
             // but before that, lets see if we are actually passing a --store argument
             if arguments[1].starts_with("--") {
-                run(key_arg, "".to_string(), default_store_name, &logger);
+                run(key_arg, "".to_string(), &options_arg, &logger);
             } else {
-                read(key_arg, default_store_name, &logger);
+                read(key_arg, DEFAULT_STORE.to_string(), &logger, &options_arg);
             }
         }
         // if we're passing 3 arguments
@@ -58,12 +59,7 @@ fn main() {
             }
             logger.toggle_debug(get_logger_debug_from_options(&options_arg, false));
             // we call the main run function passing the key, value (can be empty, so we'll read the key instead) and the store name obtained from the options
-            run(
-                key_arg,
-                value_arg,
-                get_store_from_options(&options_arg, default_store_name),
-                &logger,
-            )
+            run(key_arg, value_arg, &options_arg, &logger)
         }
     }
 }
@@ -87,6 +83,24 @@ fn get_logger_debug_from_options(options_arg: &Vec<String>, default_value: bool)
 }
 
 /**
+ * Reads the options vector and checks if the --debug=true flag is set
+ */
+fn get_formatting_from_options(options_arg: &Vec<String>, default_value: String) -> String {
+    let mut format_value = default_value;
+    let format_option = "--f=";
+    for option in options_arg.iter() {
+        if option.starts_with(format_option) {
+            format_value = option
+                .split("=") // splitting on the = sign
+                .last() // getting the last split
+                .unwrap_or(&format_value) //unwrapping the result setting the default
+                .to_string()
+        }
+    }
+    format_value
+}
+
+/**
  * Reads the options vector and returns the value of --store=STORE
  */
 fn get_store_from_options(options_arg: &Vec<String>, default_store_name: String) -> String {
@@ -107,23 +121,30 @@ fn get_store_from_options(options_arg: &Vec<String>, default_store_name: String)
 /**
  * Runs the specified command invoking the corresponding function
  */
-fn run(key: String, value: String, store_name: String, logger: &log::Logger) {
+fn run(key: String, value: String, options: &Vec<String>, logger: &log::Logger) {
+    let store_name = get_store_from_options(options, DEFAULT_STORE.to_string());
     match key.as_str() {
         "--help" => display_help(&logger),
         "--stores" => display_stores(logger),
-        "--print" => display_store(logger, store_name),
+        "--print" => display_store(logger, store_name, options),
         "--version" => display_version(logger),
-        _ => handle_input(key, value, store_name, logger),
+        _ => handle_input(key, value, store_name, logger, options),
     }
 }
 /**
  * Handles the user input by checking the value parameter.
  * If it's not empty, insert the value, otherwise read the key
  */
-fn handle_input(key: String, value: String, store_name: String, logger: &log::Logger) {
+fn handle_input(
+    key: String,
+    value: String,
+    store_name: String,
+    logger: &log::Logger,
+    options: &Vec<String>,
+) {
     // if value is empty we want to read the value for the key
     if value == "" {
-        read(key, store_name, logger);
+        read(key, store_name, logger, options);
     } else {
         // if value is not empty, we insert a new key
         insert(key, value, store_name, logger);
@@ -133,16 +154,62 @@ fn handle_input(key: String, value: String, store_name: String, logger: &log::Lo
 /**
  * Reads the value for a key in a store
  */
-fn read(key: String, store_name: String, logger: &log::Logger) {
+fn read(key: String, store_name: String, logger: &log::Logger, options: &Vec<String>) {
     let mut db = create_db(store_name.to_string(), logger.is_debug);
     let value: String = db.read(key.to_string());
+    let formatting = get_formatting_from_options(&options, "default".to_string());
     if value != "" {
-        logger.display(value);
+        print_keypair_formatted(&key, value, formatting, logger);
     } else {
         logger.display(format!(
             "Key not found: '{}' on store: '{}'",
             key, store_name
         ));
+    }
+}
+
+fn print_keypair_formatted(key: &String, value: String, formatting: String, logger: &log::Logger) {
+    match formatting.as_str() {
+        "short" => logger.display(format!("{}", value)),
+        "csv" => {
+            let headers = "key,value";
+            let pair = format!("{},{}", key, value);
+            logger.display(format!("{}\n{}\n", headers, pair));
+        }
+        "json" => {
+            let mut json_object: HashMap<String, String> = HashMap::new();
+            json_object.insert(key.to_string(), value);
+            let json_string = json::stringify_pretty(json_object, 4);
+            logger.display(json_string);
+        }
+        _ => logger.display(format!("{}={}", key, value)),
+    }
+}
+
+fn print_store_formatted(db: HashMap<String, String>, formatting: String, logger: &log::Logger) {
+    match formatting.as_str() {
+        "short" => {
+            for (key, value) in db {
+                logger.display(format!("{}", value));
+            }
+        }
+        "csv" => {
+            let headers = "key,value";
+            let mut lines: Vec<String> = vec![];
+            for (key, value) in db {
+                lines.push(format!("{},{}\n", key, value));
+            }
+            logger.display(format!("{}\n{}\n", headers, lines.join("")));
+        }
+        "json" => {
+            let json_string = json::stringify_pretty(db, 4);
+            logger.display(json_string);
+        }
+        _ => {
+            for (key, value) in db {
+                logger.display(format!("{}={}", key, value));
+            }
+        }
     }
 }
 
@@ -162,15 +229,22 @@ fn insert(key: String, value: String, store_name: String, logger: &log::Logger) 
  * Displays the different stores (dbs) created with the app
  */
 fn display_stores(logger: &log::Logger) {
-    let db = create_db("default".to_string(), logger.is_debug);
+    let db = create_db(DEFAULT_STORE.to_string(), logger.is_debug);
     db.print_stores();
 }
 /**
  * Display all key-pairs within a store
  */
-fn display_store(logger: &log::Logger, store_name: String) {
+fn display_store(logger: &log::Logger, store_name: String, options: &Vec<String>) {
+    let formatting = get_formatting_from_options(&options, "default".to_string());
+    logger.display(format!("Displaying Store '{}' with formatting '{}'", store_name, formatting));
     let db = create_db(store_name, logger.is_debug);
-    db.print_store();
+    let items = db.get_stores();
+    print_store_formatted(
+        items,
+        formatting,
+        logger,
+    );
 }
 /**
  * Displays current app version
@@ -186,12 +260,13 @@ fn display_version(logger: &log::Logger) {
  */
 fn create_db(store_name: String, is_debug: bool) -> db::Database {
     // lets create a binding for where we want our db files to be stored
-    let store_path = std::env::temp_dir() //getting home directory
-    .join(".gui-kvstore") //joining with app directory
-    .join("data")//joining the path for data
-    .display() //converting to a displayable object
-    .to_string(); //that has a to_string method
-    // return a new db instance with our store name, a valid path and if we`re debugging
+    let store_path = std::env::home_dir()
+        .unwrap_or_default() //getting home directory
+        .join(".gui-kvstore") //joining with app directory
+        .join("data") //joining the path for data
+        .display() //converting to a displayable object
+        .to_string(); //that has a to_string method
+                      // return a new db instance with our store name, a valid path and if we`re debugging
     db::Database::new(store_name, store_path, is_debug).unwrap()
 }
 
@@ -200,25 +275,22 @@ fn create_db(store_name: String, is_debug: bool) -> db::Database {
  */
 fn display_help(logger: &log::Logger) {
     logger.display(format!("Usage:"));
-    logger.display(format!("gui-kvstore KEY VALUE"));
+    logger.display(format!("\tgui-kvstore KEY VALUE --debug=true|false --f=default|csv|json|short --store=STORE_NAME"));
     logger.display(format!("Saves a VALUE string with a key with name of KEY"));
-    logger.display(format!(""));
-    logger.display(format!("gui-kvstore KEY --store=STORE_NAME"));
-    logger.display(format!(
-        "Attempts to read a value for the provided KEY in the provided STORE_NAME"
-    ));
-    logger.display(format!(""));
-    logger.display(format!("gui-kvstore --stores"));
+    logger.display(format!("\nOptions:"));
+    logger.display(format!("\t--debug=true|false              - toggles debug output"));
+    logger.display(format!("\t--f=default|csv|json|short      - specifies the format to read"));
+    logger.display(format!("\t--store=STORE_NAME              - reads/writes value in a specific db store file"));
+    //
+    logger.display(format!("\nOther Commands:"));
+    logger.display(format!("\tgui-kvstore --stores"));
     logger.display(format!("Prints all the stores created"));
-    logger.display(format!(""));
-    logger.display(format!("gui-kvstore KEY VALUE --store=STORE_NAME"));
+    logger.display(format!("\n\tgui-kvstore KEY VALUE --store=STORE_NAME"));
     logger.display(format!(
         "Saves a VALUE string with a key with name of KEY in the store STORE_NAME"
     ));
     logger.display(format!(""));
-    logger.display(format!("gui-kvstore --print"));
-    logger.display(format!("Prints all key-pairs saved in the default store"));
+    logger.display(format!("gui-kvstore --print --debug=true|false --f=default|csv|json|short --store=STORE_NAME"));
+    logger.display(format!("Prints all key-pairs saved in the store"));
     logger.display(format!(""));
-    logger.display(format!("gui-kvstore --print --store=STORE_NAME"));
-    logger.display(format!("Prints all key-pairs saved in the STORE_NAME"));
 }
