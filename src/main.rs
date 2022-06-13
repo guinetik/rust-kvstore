@@ -110,7 +110,7 @@ fn get_store_from_options(options_arg: &Vec<String>, default_store_name: String)
 fn run(key: String, value: String, store_name: String, logger: &log::Logger) {
     match key.as_str() {
         "--help" => display_help(&logger),
-        "--store" => display_stores(logger),
+        "--stores" => display_stores(logger),
         "--print" => display_store(logger, store_name),
         "--version" => display_version(logger),
         _ => handle_input(key, value, store_name, logger),
@@ -208,7 +208,7 @@ fn display_help(logger: &log::Logger) {
         "Attempts to read a value for the provided KEY in the provided STORE_NAME"
     ));
     logger.display(format!(""));
-    logger.display(format!("gui-kvstore --store"));
+    logger.display(format!("gui-kvstore --stores"));
     logger.display(format!("Prints all the stores created"));
     logger.display(format!(""));
     logger.display(format!("gui-kvstore KEY VALUE --store=STORE_NAME"));
