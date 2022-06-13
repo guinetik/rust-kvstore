@@ -82,7 +82,7 @@ Attempt to read a value for the provided KEY in the provided STORE_NAME:
 
 Prints all stores created: 
 ```
-λ gui-kvstore --print
+λ gui-kvstore --stores
 ```
 Outputs:  
 ```bash

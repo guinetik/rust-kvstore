@@ -80,7 +80,9 @@ impl Database {
      * Iterates over the DB_DIR folder and prints all stores found
      */
     pub fn print_stores(&self) {
-        let paths = std::fs::read_dir(&self.db_file_path).unwrap();
+        let db_path = Path::new(&self.db_file_path).parent();
+        self.logger.debug(format!("reading stores in: {}", db_path.unwrap().display()));
+        let paths = std::fs::read_dir(db_path.unwrap()).unwrap();
         for path in paths {
             self.logger.display(format!(
                 "Store Name: {}",
