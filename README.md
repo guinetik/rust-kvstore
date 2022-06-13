@@ -35,11 +35,16 @@ target\release\gui-kvstore --help
 ```
 
 ## Usage
+```
+gui-kvstore KEY VALUE --debug=true|false --f=default|csv|json|short --store=STORE_NAME
+```
+Saves a VALUE string with a key with name of KEY. Options:
+```
+--debug=true|false              - toggles debug output
+--f=default|csv|json|short      - specifies the format to read
+--store=STORE_NAME              - reads/writes value in a specific db store file
+```
 
-Saves a VALUE string with a key with name of KEY:  
-```
-gui-kvstore KEY VALUE
-```
 Example:
 ```
 λ gui-kvstore key_name key_value

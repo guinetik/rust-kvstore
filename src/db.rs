@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, iter::Map};
 #[path = "log.rs"]
 mod log;
 
@@ -17,12 +17,14 @@ impl Database {
         let mut logger:log::Logger = log::Logger::new();
         logger.toggle_debug(log_debug);
         //
-        let db_file_path = Database::get_store_filename(&store_path, &store_name);
         logger.debug(format!("Store Path: {}", store_path));
-        // creating map to save entries into
+        //
         let mut db_map = HashMap::new();
+        // creating map to save entries into
+        let db_file_path = Database::get_store_filename(&store_path, &store_name);
+        logger.debug(format!("Store File: {}", &db_file_path));
         //checking if file exists
-        let file_exists = std::path::Path::new(&store_path).is_file();
+        let file_exists = std::path::Path::new(&db_file_path).exists();
         //
         if file_exists {
             /*
@@ -33,7 +35,7 @@ impl Database {
                 }
             };
             */
-            let contents: String = std::fs::read_to_string(store_path)?; //the question mark here is equivalent to the commented block above
+            let contents: String = std::fs::read_to_string(&db_file_path)?; //the question mark here is equivalent to the commented block above
                                                                          // reading each line of the file and saving them to the map
             for line in contents.lines() {
                 //.lines here returns slices or views to the lines, which is represented by the &str
@@ -59,21 +61,31 @@ impl Database {
         })
     }
 
+    /**
+     * inserts a new entry in the db
+     */
     pub fn insert(&mut self, key_arg: String, value_arg: String) {
         self.db_data.insert(key_arg, value_arg);
     }
 
+    /**
+     * read an entry by key. if it doesn`t exist, return an empty string
+     */
     pub fn read(&mut self, key: String) -> String {
         self.db_data.get(&key).unwrap_or(&String::from("")).to_owned()
     }
 
+    /**
+     * flushes the database, writing it into file
+     */
     fn flush(&mut self) -> std::io::Result<()> {
         self.logger.debug(format!("flushing db: {}", self.name));
         let mut contents = String::new();
         for (key, value) in &self.db_data {
             contents.push_str(&Database::format_keypair(key, value));
         }
-        std::fs::write(Database::get_store_filename(&self.db_file_path, &self.name), contents)
+        self.logger.debug(format!("writing on: {}", &self.db_file_path));
+        std::fs::write(&self.db_file_path, contents)
     }
 
     /**
@@ -91,7 +103,7 @@ impl Database {
         }
     }
 
-    pub fn print_store(&self) {
+    /* pub fn print_store(&self) {
         self.logger.display("Printing all stores...".to_string());
         for (key, value) in &self.db_data {
             self.logger.display(format!(
@@ -100,13 +112,20 @@ impl Database {
                 value
             ));
         }
+    } */
+
+    /**
+     * returns a copy of the db data
+     */
+    pub fn get_stores(&self) -> HashMap<String, String> {
+        self.db_data.clone()
     }
 
     /**
      * returns the file path for a db storage with store_name
      */
     fn get_store_filename(store_path:&str, store_name: &str) -> String {
-        format!("{}/{}.db", store_path, store_name)
+        Path::new(store_path).join([store_name, ".db"].join("")).display().to_string()
     }
 
     /**
