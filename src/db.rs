@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, iter::Map};
+use std::{collections::HashMap, path::Path};
 #[path = "log.rs"]
 mod log;
 

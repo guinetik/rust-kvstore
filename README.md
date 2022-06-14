@@ -15,6 +15,10 @@ rust up server:
 choco install rustup.install
 ```
 
+Also, newer versions of the package require the C compiler (cc.exe) in your machine. The easiest way to do that in windows is again with choco:
+```
+```
+
 ## Compiling
 
 using cargo build tool to build a release executable:
@@ -36,13 +40,13 @@ target\release\gui-kvstore --help
 
 ## Usage
 ```
-gui-kvstore KEY VALUE --debug=true|false --f=default|csv|json|short --store=STORE_NAME
+gui-kvstore KEY VALUE --debug=true|false --f=default|csv|json|short|table --store=STORE_NAME
 ```
 Saves a VALUE string with a key with name of KEY. Options:
 ```
---debug=true|false              - toggles debug output
---f=default|csv|json|short      - specifies the format to read
---store=STORE_NAME              - reads/writes value in a specific db store file
+--debug=true|false                  - toggles debug output
+--f=default|csv|json|short|table    - specifies the format to read
+--store=STORE_NAME                  - reads/writes value in a specific db store file
 ```
 
 Example:
