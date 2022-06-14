@@ -17,6 +17,7 @@ choco install rustup.install
 
 Also, newer versions of the package require the C compiler (cc.exe) in your machine. The easiest way to do that in windows is again with choco:
 ```
+choco install msys2
 ```
 
 ## Compiling
