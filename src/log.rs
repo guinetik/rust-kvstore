@@ -37,3 +37,16 @@ impl Logger {
         self.is_debug = e;
     }
 }
+#[cfg(test)]
+mod tests{
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn logger_test() {
+        let mut l:Logger = Logger::new();
+        l.display("display_test".to_string());
+        l.toggle_debug(true);
+        l.debug("this is a debug message".to_string());
+    }
+}
